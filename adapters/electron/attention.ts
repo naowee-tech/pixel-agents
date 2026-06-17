@@ -16,6 +16,7 @@ export function attachAttention(deps: AttentionDeps): () => void {
   const { store, adapter, getWindow } = deps;
   const waiting = new Set<number>();
   const lastFired = new Map<number, number>();
+  const bounceIds = new Map<number, number>();
 
   const masterOn = (): boolean =>
     adapter.getSetting(NOTIFY_KEYS.master, NOTIFY_DEFAULTS.nativeAttentionEnabled);
@@ -58,7 +59,8 @@ export function attachAttention(deps: AttentionDeps): () => void {
     }
 
     if (sig(NOTIFY_KEYS.dockBounce, NOTIFY_DEFAULTS.dockBounce)) {
-      app.dock?.bounce('critical');
+      const bounceId = app.dock?.bounce('critical');
+      if (typeof bounceId === 'number') bounceIds.set(id, bounceId);
     }
     if (sig(NOTIFY_KEYS.bringToFront, NOTIFY_DEFAULTS.bringToFront)) {
       win?.show();
@@ -74,6 +76,11 @@ export function attachAttention(deps: AttentionDeps): () => void {
   function clearWaiting(id: number): void {
     if (waiting.delete(id)) updateBadge();
     lastFired.delete(id);
+    const bounceId = bounceIds.get(id);
+    if (bounceId !== undefined) {
+      app.dock?.cancelBounce(bounceId);
+      bounceIds.delete(id);
+    }
   }
 
   const onBroadcast = (msg: Record<string, unknown>): void => {

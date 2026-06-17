@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import type { NotifySettings } from '../../../core/src/messages.js';
 import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notificationSound.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import { setFloorSprites } from '../office/floorTiles.js';
@@ -71,7 +72,7 @@ interface ExtensionMessageState {
   setHooksEnabled: (v: boolean) => void;
   hooksInfoShown: boolean;
   host: string;
-  notify: Record<string, boolean>;
+  notify: Partial<NotifySettings>;
 }
 
 function saveAgentSeats(os: OfficeState): void {
@@ -110,7 +111,7 @@ export function useExtensionMessages(
   const [hooksEnabled, setHooksEnabled] = useState(true);
   const [hooksInfoShown, setHooksInfoShown] = useState(true);
   const [host, setHost] = useState('browser');
-  const [notify, setNotify] = useState<Record<string, boolean>>({});
+  const [notify, setNotify] = useState<Partial<NotifySettings>>({});
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false);
@@ -487,7 +488,7 @@ export function useExtensionMessages(
           setExtensionVersion(msg.extensionVersion as string);
         }
         setHost((msg.host as string) ?? 'browser');
-        setNotify((msg.notify as Record<string, boolean>) ?? {});
+        setNotify((msg.notify as Partial<NotifySettings>) ?? {});
       } else if (msg.type === 'externalAssetDirectoriesUpdated') {
         if (Array.isArray(msg.dirs)) {
           setExternalAssetDirectories(msg.dirs as string[]);

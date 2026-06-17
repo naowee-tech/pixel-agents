@@ -13,6 +13,7 @@ import { createMainWindow } from './window.js';
 let handle: StandaloneHandle | null = null;
 let win: BrowserWindow | null = null;
 let tray: { setCount: (n: number) => void; destroy: () => void } | null = null;
+let detachAttention: (() => void) | null = null;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -52,7 +53,14 @@ function clearFilter(): void {
   handle.adapter.setSetting('pixel-agents.watchAllSessions', true);
 }
 
-async function boot(): Promise<void> {
+/**
+ * Set up the server, bridge, tray, attention, and menu exactly ONCE. On macOS
+ * the process survives window close (window-all-closed does not quit), so a dock
+ * re-activate must not re-run any of this — guard on `handle`.
+ */
+async function ensureServer(): Promise<void> {
+  if (handle) return;
+
   const bridge = createNativeBridge({
     getWindow: () => win,
     broadcast: (m) => handle?.store.broadcast(m),
@@ -64,22 +72,13 @@ async function boot(): Promise<void> {
     hostCallbacks: bridge,
   });
 
-  win = createMainWindow({
-    url: `http://127.0.0.1:${handle.config.port}`,
-    getSetting: (key, def) => handle!.adapter.getSetting(key, def),
-    setSetting: (key, val) => handle!.adapter.setSetting(key, val),
-  });
-  win.on('closed', () => {
-    win = null;
-  });
-
   // Default to global scope (machine-wide) for the native app.
   handle.runtime.watchAllSessions.current = true;
   handle.adapter.setSetting('pixel-agents.watchAllSessions', true);
 
   // Fire native OS attention (notification, dock bounce/badge) when agents wait.
   tray = createWaitingTray(handle.adapter);
-  attachAttention({
+  detachAttention = attachAttention({
     store: handle.store,
     adapter: handle.adapter,
     getWindow: () => win,
@@ -95,6 +94,28 @@ async function boot(): Promise<void> {
   });
 }
 
+/** Create (or re-show) the main window. Safe to call repeatedly. */
+function openWindow(): void {
+  if (win) {
+    win.show();
+    win.focus();
+    return;
+  }
+  win = createMainWindow({
+    url: `http://127.0.0.1:${handle!.config.port}`,
+    getSetting: (key, def) => handle!.adapter.getSetting(key, def),
+    setSetting: (key, val) => handle!.adapter.setSetting(key, val),
+  });
+  win.on('closed', () => {
+    win = null;
+  });
+}
+
+async function boot(): Promise<void> {
+  await ensureServer();
+  openWindow();
+}
+
 if (gotLock) {
   app.whenReady().then(boot).catch((err) => {
     console.error('[Pixel Agents] Failed to start:', err);
@@ -107,12 +128,15 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) void boot();
+  // The server is already running; only (re)open the window. Do NOT re-boot.
+  if (handle) openWindow();
 });
 
 app.on('before-quit', () => {
-  if (handle) stopStandalone(handle);
-  handle = null;
+  detachAttention?.();
+  detachAttention = null;
   tray?.destroy();
   tray = null;
+  if (handle) stopStandalone(handle);
+  handle = null;
 });

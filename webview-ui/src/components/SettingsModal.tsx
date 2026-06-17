@@ -21,7 +21,7 @@ interface SettingsModalProps {
   hooksEnabled: boolean;
   onToggleHooksEnabled: () => void;
   host: string;
-  notify: Record<string, boolean>;
+  notify: Partial<NotifySettings>;
 }
 
 type NotifyKey = keyof NotifySettings;
@@ -62,7 +62,7 @@ export function SettingsModal({
   // Lift notify into local state so the checkboxes reflect toggles immediately,
   // without waiting for a fresh settingsLoaded round-trip. Re-seed from the prop
   // whenever the server pushes new values.
-  const [notifyLocal, setNotifyLocal] = useState<Record<string, boolean>>(notify);
+  const [notifyLocal, setNotifyLocal] = useState<Partial<NotifySettings>>(notify);
   useEffect(() => {
     setNotifyLocal(notify);
   }, [notify]);
@@ -81,7 +81,7 @@ export function SettingsModal({
       menubarCount: resolve('menubarCount'),
       bringToFront: resolve('bringToFront'),
     };
-    setNotifyLocal(next as unknown as Record<string, boolean>);
+    setNotifyLocal(next);
     transport.send({ type: 'setNotifySettings', notify: next });
   };
 

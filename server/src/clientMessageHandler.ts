@@ -174,7 +174,11 @@ export async function handleClientMessage(
         cfg.externalAssetDirectories.push(newPath);
         writeConfig(cfg);
       }
-      await ctx.reloadAssets?.(send);
+      try {
+        await ctx.reloadAssets?.(send);
+      } catch (err) {
+        console.error('[Pixel Agents] Failed to reload assets after add:', err);
+      }
       send({ type: 'externalAssetDirectoriesUpdated', dirs: cfg.externalAssetDirectories });
       break;
     }
@@ -185,7 +189,11 @@ export async function handleClientMessage(
       const cfg = readConfig();
       cfg.externalAssetDirectories = cfg.externalAssetDirectories.filter((d) => d !== removePath);
       writeConfig(cfg);
-      await ctx.reloadAssets?.(send);
+      try {
+        await ctx.reloadAssets?.(send);
+      } catch (err) {
+        console.error('[Pixel Agents] Failed to reload assets after remove:', err);
+      }
       send({ type: 'externalAssetDirectoriesUpdated', dirs: cfg.externalAssetDirectories });
       break;
     }

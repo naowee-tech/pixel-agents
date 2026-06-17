@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const notificationShow = vi.fn();
-const dockBounce = vi.fn();
+const dockBounce = vi.fn(() => 42);
+const dockCancelBounce = vi.fn();
 const dockSetBadge = vi.fn();
 
 vi.mock('electron', () => ({
-  app: { dock: { bounce: dockBounce, setBadge: dockSetBadge }, focus: vi.fn() },
+  app: {
+    dock: { bounce: dockBounce, cancelBounce: dockCancelBounce, setBadge: dockSetBadge },
+    focus: vi.fn(),
+  },
   shell: { beep: vi.fn() },
   Notification: class {
     static isSupported() {
@@ -82,5 +86,39 @@ describe('attachAttention', () => {
     store.broadcast({ type: 'agentToolPermission', id: 5 });
     store.broadcast({ type: 'agentToolPermissionClear', id: 5 });
     expect(dockSetBadge).toHaveBeenLastCalledWith('');
+  });
+
+  it('marks an agent on agentStatus waiting and clears it on active', () => {
+    notificationShow.mockClear();
+    dockBounce.mockClear();
+    dockSetBadge.mockClear();
+    const store = new AgentStateStore();
+    attachAttention({
+      store,
+      adapter: fakeAdapter(),
+      getWindow: () => ({ isFocused: () => false, show: vi.fn(), focus: vi.fn() }) as never,
+    });
+    store.broadcast({ type: 'agentStatus', id: 7, status: 'waiting' });
+    expect(notificationShow).toHaveBeenCalledOnce();
+    expect(dockBounce).toHaveBeenCalledOnce();
+    expect(dockSetBadge).toHaveBeenLastCalledWith('1');
+
+    store.broadcast({ type: 'agentStatus', id: 7, status: 'active' });
+    expect(dockSetBadge).toHaveBeenLastCalledWith('');
+  });
+
+  it('cancels the dock bounce when the wait is resolved', () => {
+    dockBounce.mockClear();
+    dockCancelBounce.mockClear();
+    const store = new AgentStateStore();
+    attachAttention({
+      store,
+      adapter: fakeAdapter(),
+      getWindow: () => ({ isFocused: () => false, show: vi.fn(), focus: vi.fn() }) as never,
+    });
+    store.broadcast({ type: 'agentToolPermission', id: 9 });
+    expect(dockBounce).toHaveBeenCalledOnce();
+    store.broadcast({ type: 'agentToolPermissionClear', id: 9 });
+    expect(dockCancelBounce).toHaveBeenCalledWith(42);
   });
 });
