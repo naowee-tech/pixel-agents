@@ -3,6 +3,7 @@ import { app, BrowserWindow, dialog } from 'electron';
 import { claudeProvider } from '../../server/src/providers/index.js';
 import type { StandaloneHandle } from '../../server/src/standalone.js';
 import { startStandaloneServer, stopStandalone } from '../../server/src/standalone.js';
+import { attachAttention } from './attention.js';
 import { STATE_NAMESPACE } from './config.js';
 import { applyAppMenu } from './menu.js';
 import { createNativeBridge } from './nativeBridge.js';
@@ -73,6 +74,13 @@ async function boot(): Promise<void> {
   // Default to global scope (machine-wide) for the native app.
   handle.runtime.watchAllSessions.current = true;
   handle.adapter.setSetting('pixel-agents.watchAllSessions', true);
+
+  // Fire native OS attention (notification, dock bounce/badge) when agents wait.
+  attachAttention({
+    store: handle.store,
+    adapter: handle.adapter,
+    getWindow: () => win,
+  });
 
   // Reuse the single bridge created above for export/import.
   applyAppMenu({
