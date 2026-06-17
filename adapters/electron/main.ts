@@ -1,9 +1,9 @@
 import { app, BrowserWindow } from 'electron';
-import * as path from 'path';
 
 import type { StandaloneHandle } from '../../server/src/standalone.js';
 import { startStandaloneServer, stopStandalone } from '../../server/src/standalone.js';
-import { APP_NAME, STATE_NAMESPACE, WINDOW_BACKGROUND_COLOR } from './config.js';
+import { STATE_NAMESPACE } from './config.js';
+import { createMainWindow } from './window.js';
 
 let handle: StandaloneHandle | null = null;
 let win: BrowserWindow | null = null;
@@ -20,14 +20,11 @@ async function boot(): Promise<void> {
     namespace: STATE_NAMESPACE,
   });
 
-  win = new BrowserWindow({
-    width: 1100,
-    height: 720,
-    title: APP_NAME,
-    backgroundColor: WINDOW_BACKGROUND_COLOR,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  win = createMainWindow({
+    url: `http://127.0.0.1:${handle.config.port}`,
+    getSetting: (key, def) => handle!.adapter.getSetting(key, def),
+    setSetting: (key, val) => handle!.adapter.setSetting(key, val),
   });
-  await win.loadURL(`http://127.0.0.1:${handle.config.port}`);
   win.on('closed', () => {
     win = null;
   });
@@ -50,6 +47,3 @@ app.on('before-quit', () => {
   if (handle) stopStandalone(handle);
   handle = null;
 });
-
-// Silence unused-import lint until window.ts uses path in Task 4.
-void path;
