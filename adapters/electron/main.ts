@@ -7,10 +7,12 @@ import { attachAttention } from './attention.js';
 import { STATE_NAMESPACE } from './config.js';
 import { applyAppMenu } from './menu.js';
 import { createNativeBridge } from './nativeBridge.js';
+import { createWaitingTray } from './tray.js';
 import { createMainWindow } from './window.js';
 
 let handle: StandaloneHandle | null = null;
 let win: BrowserWindow | null = null;
+let tray: { setCount: (n: number) => void; destroy: () => void } | null = null;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -76,10 +78,12 @@ async function boot(): Promise<void> {
   handle.adapter.setSetting('pixel-agents.watchAllSessions', true);
 
   // Fire native OS attention (notification, dock bounce/badge) when agents wait.
+  tray = createWaitingTray(handle.adapter);
   attachAttention({
     store: handle.store,
     adapter: handle.adapter,
     getWindow: () => win,
+    onCountChange: (n) => tray?.setCount(n),
   });
 
   // Reuse the single bridge created above for export/import.
@@ -109,4 +113,6 @@ app.on('activate', () => {
 app.on('before-quit', () => {
   if (handle) stopStandalone(handle);
   handle = null;
+  tray?.destroy();
+  tray = null;
 });
