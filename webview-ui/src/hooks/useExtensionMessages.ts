@@ -70,6 +70,8 @@ interface ExtensionMessageState {
   hooksEnabled: boolean;
   setHooksEnabled: (v: boolean) => void;
   hooksInfoShown: boolean;
+  host: string;
+  notify: Record<string, boolean>;
 }
 
 function saveAgentSeats(os: OfficeState): void {
@@ -107,6 +109,8 @@ export function useExtensionMessages(
   const [alwaysShowLabels, setAlwaysShowLabels] = useState(false);
   const [hooksEnabled, setHooksEnabled] = useState(true);
   const [hooksInfoShown, setHooksInfoShown] = useState(true);
+  const [host, setHost] = useState('browser');
+  const [notify, setNotify] = useState<Record<string, boolean>>({});
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false);
@@ -482,6 +486,8 @@ export function useExtensionMessages(
         if (typeof msg.extensionVersion === 'string') {
           setExtensionVersion(msg.extensionVersion as string);
         }
+        setHost((msg.host as string) ?? 'browser');
+        setNotify((msg.notify as Record<string, boolean>) ?? {});
       } else if (msg.type === 'externalAssetDirectoriesUpdated') {
         if (Array.isArray(msg.dirs)) {
           setExternalAssetDirectories(msg.dirs as string[]);
@@ -538,5 +544,7 @@ export function useExtensionMessages(
     hooksEnabled,
     setHooksEnabled,
     hooksInfoShown,
+    host,
+    notify,
   };
 }

@@ -42,4 +42,38 @@ describe('handleClientMessage host callbacks', () => {
     const settings = sent.find((m) => m.type === 'settingsLoaded');
     expect(settings?.host).toBe('electron');
   });
+
+  it('persists each notify key on setNotifySettings', () => {
+    const sets: Record<string, unknown> = {};
+    const store = new AgentStateStore();
+    store.setAdapter({
+      getSetting: <T>(_k: string, d: T) => d,
+      setSetting: <T>(k: string, v: T) => {
+        sets[k] = v;
+      },
+      loadAgents: () => [],
+      saveAgents: () => {},
+      loadSeats: () => ({}),
+      saveSeats: () => {},
+    });
+    handleClientMessage(
+      {
+        type: 'setNotifySettings',
+        notify: {
+          nativeAttentionEnabled: true,
+          osNotification: false,
+          osSound: true,
+          dockBounce: true,
+          dockBadge: false,
+          menubarCount: true,
+          bringToFront: true,
+        },
+      },
+      () => {},
+      { store, runtime: undefined, cache: null, host: 'electron' },
+    );
+    expect(sets['pixel-agents.notify.osNotification']).toBe(false);
+    expect(sets['pixel-agents.nativeAttentionEnabled']).toBe(true);
+    expect(sets['pixel-agents.notify.bringToFront']).toBe(true);
+  });
 });

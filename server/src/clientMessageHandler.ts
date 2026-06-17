@@ -53,6 +53,29 @@ const KEY_WATCH_ALL_SESSIONS = 'pixel-agents.watchAllSessions';
 const KEY_HOOKS_ENABLED = 'pixel-agents.hooksEnabled';
 const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
 
+// ── Native attention settings (Electron host only) ──
+// Setting-key strings MUST match adapters/electron/config.ts NOTIFY_KEYS so that
+// the Electron attention layer reads exactly what the Settings UI writes here.
+const NOTIFY_SETTING_KEYS: Record<string, string> = {
+  nativeAttentionEnabled: 'pixel-agents.nativeAttentionEnabled',
+  osNotification: 'pixel-agents.notify.osNotification',
+  osSound: 'pixel-agents.notify.osSound',
+  dockBounce: 'pixel-agents.notify.dockBounce',
+  dockBadge: 'pixel-agents.notify.dockBadge',
+  menubarCount: 'pixel-agents.notify.menubarCount',
+  bringToFront: 'pixel-agents.notify.bringToFront',
+};
+
+const NOTIFY_DEFAULTS: Record<string, boolean> = {
+  nativeAttentionEnabled: true,
+  osNotification: true,
+  osSound: true,
+  dockBounce: true,
+  dockBadge: true,
+  menubarCount: true,
+  bringToFront: false,
+};
+
 /**
  * Handle incoming ClientMessage from a WebSocket client.
  *
@@ -117,6 +140,14 @@ export async function handleClientMessage(
     case 'setHooksInfoShown':
       adapter?.setSetting(KEY_HOOKS_INFO_SHOWN, true);
       break;
+
+    case 'setNotifySettings': {
+      const notify = (msg.notify ?? {}) as Record<string, boolean>;
+      for (const [field, key] of Object.entries(NOTIFY_SETTING_KEYS)) {
+        if (field in notify) adapter?.setSetting(key, notify[field]);
+      }
+      break;
+    }
 
     case 'exportLayout':
       void ctx.hostCallbacks?.onExportLayout?.();
@@ -205,6 +236,10 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   const cfg = readConfig();
   const watchAllSessions = adapter?.getSetting(KEY_WATCH_ALL_SESSIONS, false) ?? false;
   const hooksEnabled = adapter?.getSetting(KEY_HOOKS_ENABLED, true) ?? true;
+  const notify: Record<string, boolean> = {};
+  for (const [field, key] of Object.entries(NOTIFY_SETTING_KEYS)) {
+    notify[field] = adapter?.getSetting(key, NOTIFY_DEFAULTS[field]) ?? NOTIFY_DEFAULTS[field];
+  }
   send({
     type: 'settingsLoaded',
     soundEnabled: adapter?.getSetting(KEY_SOUND_ENABLED, true) ?? true,
@@ -216,6 +251,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     hooksInfoShown: adapter?.getSetting(KEY_HOOKS_INFO_SHOWN, false) ?? false,
     externalAssetDirectories: cfg.externalAssetDirectories,
     host: ctx.host ?? 'standalone',
+    notify,
   });
 
   // Sync runtime refs with the persisted settings so scanners behave correctly

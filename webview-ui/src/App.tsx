@@ -74,6 +74,8 @@ function App() {
     hooksEnabled,
     setHooksEnabled,
     hooksInfoShown,
+    host,
+    notify,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   // Show migration notice once layout reset is detected
@@ -364,6 +366,8 @@ function App() {
           setHooksEnabled(newVal);
           transport.send({ type: 'setHooksEnabled', enabled: newVal });
         }}
+        host={host}
+        notify={notify}
       />
 
       {showMigrationNotice && (
