@@ -1,8 +1,10 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 
+import { claudeProvider } from '../../server/src/providers/index.js';
 import type { StandaloneHandle } from '../../server/src/standalone.js';
 import { startStandaloneServer, stopStandalone } from '../../server/src/standalone.js';
 import { STATE_NAMESPACE } from './config.js';
+import { applyAppMenu } from './menu.js';
 import { createNativeBridge } from './nativeBridge.js';
 import { createMainWindow } from './window.js';
 
@@ -27,6 +29,26 @@ function distRoot(): string {
   return __dirname;
 }
 
+/** Re-scope scanning to a single project folder chosen via a native dialog. */
+async function filterToFolder(): Promise<void> {
+  if (!handle) return;
+  const res = await dialog.showOpenDialog(win ?? undefined, { properties: ['openDirectory'] });
+  if (res.canceled || res.filePaths.length === 0) return;
+  const dirs = claudeProvider.getSessionDirs?.(res.filePaths[0]);
+  if (!dirs || !dirs[0]) return;
+  handle.runtime.watchAllSessions.current = false;
+  handle.adapter.setSetting('pixel-agents.watchAllSessions', false);
+  handle.runtime.startProjectScan(dirs[0]);
+  handle.runtime.startExternalScanning(dirs[0]);
+}
+
+/** Restore machine-wide scanning (show agents from all projects). */
+function clearFilter(): void {
+  if (!handle) return;
+  handle.runtime.watchAllSessions.current = true;
+  handle.adapter.setSetting('pixel-agents.watchAllSessions', true);
+}
+
 async function boot(): Promise<void> {
   const bridge = createNativeBridge({
     getWindow: () => win,
@@ -46,6 +68,18 @@ async function boot(): Promise<void> {
   });
   win.on('closed', () => {
     win = null;
+  });
+
+  // Default to global scope (machine-wide) for the native app.
+  handle.runtime.watchAllSessions.current = true;
+  handle.adapter.setSetting('pixel-agents.watchAllSessions', true);
+
+  // Reuse the single bridge created above for export/import.
+  applyAppMenu({
+    onFilterToFolder: () => void filterToFolder(),
+    onClearFilter: clearFilter,
+    onExport: () => void bridge.onExportLayout?.(),
+    onImport: () => void bridge.onImportLayout?.(),
   });
 }
 
