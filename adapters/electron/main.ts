@@ -3,6 +3,7 @@ import { app, BrowserWindow } from 'electron';
 import type { StandaloneHandle } from '../../server/src/standalone.js';
 import { startStandaloneServer, stopStandalone } from '../../server/src/standalone.js';
 import { STATE_NAMESPACE } from './config.js';
+import { createNativeBridge } from './nativeBridge.js';
 import { createMainWindow } from './window.js';
 
 let handle: StandaloneHandle | null = null;
@@ -27,10 +28,15 @@ function distRoot(): string {
 }
 
 async function boot(): Promise<void> {
+  const bridge = createNativeBridge({
+    getWindow: () => win,
+    broadcast: (m) => handle?.store.broadcast(m),
+  });
   handle = await startStandaloneServer({
     distRoot: distRoot(),
     port: 0,
     namespace: STATE_NAMESPACE,
+    hostCallbacks: bridge,
   });
 
   win = createMainWindow({
