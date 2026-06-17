@@ -23,6 +23,28 @@
   "bin": {
     "pixel-agents": "./dist/cli.js"
   },
+  "build": {
+    "appId": "tech.naowee.pixelagents",
+    "productName": "Pixel Agents",
+    "files": [
+      "dist/**/*",
+      "node_modules/fastify/**/*",
+      "node_modules/@fastify/**/*"
+    ],
+    "extraMetadata": {
+      "main": "dist/electron-main.js"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    }
+  },
   "contributes": {
     "commands": [
       {
@@ -105,6 +127,8 @@
     "@types/pngjs": "^6.0.5",
     "@types/vscode": "^1.105.0",
     "@vscode/test-electron": "^2.5.2",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "esbuild": "^0.28.0",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
