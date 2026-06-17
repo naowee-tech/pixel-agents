@@ -8,6 +8,19 @@ import { createMainWindow } from './window.js';
 let handle: StandaloneHandle | null = null;
 let win: BrowserWindow | null = null;
 
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
+  });
+}
+
 /** dist/ root: electron-main.js is bundled to dist/, so __dirname === dist/. */
 function distRoot(): string {
   return __dirname;
@@ -30,10 +43,12 @@ async function boot(): Promise<void> {
   });
 }
 
-app.whenReady().then(boot).catch((err) => {
-  console.error('[Pixel Agents] Failed to start:', err);
-  app.quit();
-});
+if (gotLock) {
+  app.whenReady().then(boot).catch((err) => {
+    console.error('[Pixel Agents] Failed to start:', err);
+    app.quit();
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
