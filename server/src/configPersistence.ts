@@ -26,11 +26,12 @@ export const ADAPTER_SETTING_KEYS = [
 export type AdapterSettingKey = (typeof ADAPTER_SETTING_KEYS)[number];
 
 /** Namespaces = adapter identities sharing the same config.json file. */
-export type ConfigNamespace = 'vscode' | 'standalone';
+export type ConfigNamespace = 'vscode' | 'standalone' | 'electron';
 
 export interface PixelAgentsConfig {
   vscode: AdapterSettings;
   standalone: AdapterSettings;
+  electron: AdapterSettings;
   externalAssetDirectories: string[];
 }
 
@@ -85,6 +86,7 @@ export function readConfig(): PixelAgentsConfig {
       return {
         vscode: { ...DEFAULT_ADAPTER_SETTINGS },
         standalone: { ...DEFAULT_ADAPTER_SETTINGS },
+        electron: { ...DEFAULT_ADAPTER_SETTINGS },
         externalAssetDirectories: [],
       };
     }
@@ -93,6 +95,7 @@ export function readConfig(): PixelAgentsConfig {
     return {
       vscode: parseAdapterSettings(parsed.vscode),
       standalone: parseAdapterSettings(parsed.standalone),
+      electron: parseAdapterSettings(parsed.electron),
       externalAssetDirectories: Array.isArray(parsed.externalAssetDirectories)
         ? parsed.externalAssetDirectories.filter((d): d is string => typeof d === 'string')
         : [],
@@ -102,6 +105,7 @@ export function readConfig(): PixelAgentsConfig {
     return {
       vscode: { ...DEFAULT_ADAPTER_SETTINGS },
       standalone: { ...DEFAULT_ADAPTER_SETTINGS },
+      electron: { ...DEFAULT_ADAPTER_SETTINGS },
       externalAssetDirectories: [],
     };
   }
