@@ -116,6 +116,7 @@
     "test": "npm run test:webview && npm run test:server",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:debug": "playwright test --config e2e/playwright.config.ts --debug",
+    "e2e:electron": "playwright test e2e/tests/electron-app.spec.ts",
     "knip": "knip"
   },
   "devDependencies": {
