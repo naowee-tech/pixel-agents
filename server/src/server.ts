@@ -62,6 +62,9 @@ export class PixelAgentsServer {
     staticDir?: string;
     assetCache?: AssetCache;
     onSetHooksEnabled?: SetHooksEnabledSideEffect;
+    hostId?: 'vscode' | 'standalone' | 'electron';
+    hostCallbacks?: import('./clientMessageHandler.js').HostCallbacks;
+    reloadAssets?: (send: (m: Record<string, unknown>) => void) => Promise<void>;
   }): Promise<ServerConfig> {
     // Check if another instance already has a server running
     const existing = this.readServerJson();
@@ -89,6 +92,9 @@ export class PixelAgentsServer {
       assetCache: options?.assetCache,
       onHookEvent: (providerId, event) => this.callback?.(providerId, event),
       onSetHooksEnabled: options?.onSetHooksEnabled,
+      hostId: options?.hostId,
+      hostCallbacks: options?.hostCallbacks,
+      reloadAssets: options?.reloadAssets,
     });
 
     this.app = app;

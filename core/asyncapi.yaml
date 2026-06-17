@@ -537,6 +537,9 @@ components:
           type: array
           items:
             type: string
+        host:
+          type: string
+          description: Host runtime identifier ('vscode' | 'standalone' | 'electron').
 
     ExternalAssetDirectoriesUpdated:
       description: External asset directory list changed (after add/remove).

@@ -5,11 +5,15 @@ import { AgentStateStore } from './agentStateStore.js';
 import {
   loadCharacterSprites,
   loadDefaultLayout,
+  loadExternalCharacterSprites,
   loadFloorTiles,
   loadFurnitureAssets,
   loadWallTiles,
+  mergeCharacterSprites,
+  mergeLoadedAssets,
 } from './assetLoader.js';
-import type { AssetCache } from './clientMessageHandler.js';
+import type { AssetCache, HostCallbacks } from './clientMessageHandler.js';
+import { readConfig } from './configPersistence.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { claudeProvider, copyHookScript } from './providers/index.js';
 import type { ServerConfig } from './server.js';
@@ -31,6 +35,8 @@ export interface StartStandaloneOptions {
   /** 0 = auto-assign. Default 3100 (CLI), Electron passes 0. */
   port?: number;
   namespace?: 'standalone' | 'electron';
+  /** Native host callbacks (Electron file dialogs, open folder). */
+  hostCallbacks?: HostCallbacks;
 }
 
 /**
@@ -49,6 +55,34 @@ export async function startStandaloneServer(
     wallTiles: await loadWallTiles(distRoot).then((t) => t?.sets ?? null),
     furniture: await loadFurnitureAssets(distRoot),
     defaultLayout: loadDefaultLayout(distRoot),
+  };
+
+  // Reload furniture + character assets (bundled + every external dir) and push
+  // the freshly merged sets to the client. Used when external asset dirs change.
+  // NOTE: assetLoader's send* helpers take a vscode.Webview and call
+  // webview.postMessage(...). Rather than fake that shape with `as never`, we
+  // emit the real messages directly with the same type fields those helpers use
+  // (characterSpritesLoaded / furnitureAssetsLoaded).
+  const reloadAssets = async (send: (m: Record<string, unknown>) => void): Promise<void> => {
+    const cfg = readConfig();
+    let chars = await loadCharacterSprites(distRoot);
+    let furniture = await loadFurnitureAssets(distRoot);
+    for (const dir of cfg.externalAssetDirectories) {
+      const exChars = await loadExternalCharacterSprites(dir);
+      if (exChars) chars = chars ? mergeCharacterSprites(chars, exChars) : exChars;
+      const exFurn = await loadFurnitureAssets(dir);
+      if (exFurn) furniture = furniture ? mergeLoadedAssets(furniture, exFurn) : exFurn;
+    }
+    if (chars) {
+      send({ type: 'characterSpritesLoaded', characters: chars.characters });
+    }
+    if (furniture) {
+      send({
+        type: 'furnitureAssetsLoaded',
+        catalog: furniture.catalog,
+        sprites: Object.fromEntries(furniture.sprites),
+      });
+    }
   };
 
   const store = new AgentStateStore();
@@ -82,6 +116,9 @@ export async function startStandaloneServer(
     staticDir,
     assetCache,
     onSetHooksEnabled,
+    hostId: opts.namespace === 'electron' ? 'electron' : 'standalone',
+    hostCallbacks: opts.hostCallbacks,
+    reloadAssets,
   });
   currentConfig = { port: config.port, token: config.token };
 

@@ -10,6 +10,18 @@ type WsSend = (message: Record<string, unknown>) => void;
 /** Async hook toggle side effect (install/uninstall + script copy). Provided by cli.ts. */
 export type SetHooksEnabledSideEffect = (enabled: boolean) => Promise<void> | void;
 
+/**
+ * Optional native host callbacks. Provided by the embedding host (Electron) to
+ * service client messages that need OS integration (file dialogs, opening a
+ * folder). Each is optional; standalone CLI leaves them undefined.
+ */
+export interface HostCallbacks {
+  onExportLayout?: () => Promise<void> | void;
+  onImportLayout?: () => Promise<void> | void;
+  onPickAssetDir?: () => Promise<void> | void;
+  onOpenPath?: (dir: string) => void;
+}
+
 /** Cached assets loaded at server startup. Sent to each WebSocket client on webviewReady. */
 export interface AssetCache {
   characters: LoadedCharacterSprites | null;
@@ -25,6 +37,12 @@ export interface ClientMessageContext {
   cache: AssetCache | null;
   /** Install/uninstall hooks side effect. Needs server url+token known only to cli.ts. */
   onSetHooksEnabled?: SetHooksEnabledSideEffect;
+  /** Host runtime identifier, surfaced to the webview via settingsLoaded. */
+  host?: 'vscode' | 'standalone' | 'electron';
+  /** Native host callbacks (Electron file dialogs, open folder). */
+  hostCallbacks?: HostCallbacks;
+  /** Reloads furniture + character assets and pushes them to the client. */
+  reloadAssets?: (send: (m: Record<string, unknown>) => void) => Promise<void>;
 }
 
 // ── Setting key constants (mirror adapters/vscode/constants.ts) ──
@@ -42,11 +60,11 @@ const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
  * layout, settings, agents. Assets are loaded once at startup and cached
  * in memory. Each connecting client receives the full state on webviewReady.
  */
-export function handleClientMessage(
+export async function handleClientMessage(
   msg: Record<string, unknown>,
   send: WsSend,
   ctx: ClientMessageContext,
-): void {
+): Promise<void> {
   const { store, runtime } = ctx;
   const adapter = store.getAdapter();
 
@@ -100,14 +118,32 @@ export function handleClientMessage(
       adapter?.setSetting(KEY_HOOKS_INFO_SHOWN, true);
       break;
 
+    case 'exportLayout':
+      void ctx.hostCallbacks?.onExportLayout?.();
+      break;
+
+    case 'importLayout':
+      void ctx.hostCallbacks?.onImportLayout?.();
+      break;
+
+    case 'openSessionsFolder': {
+      const dirs = claudeProvider.getSessionDirs?.(process.cwd());
+      if (dirs && dirs[0]) ctx.hostCallbacks?.onOpenPath?.(dirs[0]);
+      break;
+    }
+
     case 'addExternalAssetDirectory': {
       const newPath = msg.path as string | undefined;
-      if (!newPath) break;
+      if (!newPath) {
+        void ctx.hostCallbacks?.onPickAssetDir?.();
+        break;
+      }
       const cfg = readConfig();
       if (!cfg.externalAssetDirectories.includes(newPath)) {
         cfg.externalAssetDirectories.push(newPath);
         writeConfig(cfg);
       }
+      await ctx.reloadAssets?.(send);
       send({ type: 'externalAssetDirectoriesUpdated', dirs: cfg.externalAssetDirectories });
       break;
     }
@@ -118,13 +154,14 @@ export function handleClientMessage(
       const cfg = readConfig();
       cfg.externalAssetDirectories = cfg.externalAssetDirectories.filter((d) => d !== removePath);
       writeConfig(cfg);
+      await ctx.reloadAssets?.(send);
       send({ type: 'externalAssetDirectoriesUpdated', dirs: cfg.externalAssetDirectories });
       break;
     }
 
     default:
-      // focusAgent, exportLayout, importLayout
-      // require IDE-specific handling (not yet implemented for standalone)
+      // focusAgent and other messages require IDE-specific handling
+      // (not yet implemented for standalone)
       break;
   }
 }
@@ -178,6 +215,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     hooksEnabled,
     hooksInfoShown: adapter?.getSetting(KEY_HOOKS_INFO_SHOWN, false) ?? false,
     externalAssetDirectories: cfg.externalAssetDirectories,
+    host: ctx.host ?? 'standalone',
   });
 
   // Sync runtime refs with the persisted settings so scanners behave correctly

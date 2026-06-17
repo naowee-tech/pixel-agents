@@ -241,6 +241,7 @@ export interface SettingsLoaded {
   hooksEnabled: boolean;
   hooksInfoShown: boolean;
   externalAssetDirectories: string[];
+  host?: string;
 }
 
 export interface ExternalAssetDirectoriesUpdated {
