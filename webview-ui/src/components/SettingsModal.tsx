@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import type { NotifySettings } from '../../../core/src/messages.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { transport } from '../transport/index.js';
 import { Button } from './ui/Button.js';
@@ -19,6 +20,26 @@ interface SettingsModalProps {
   onToggleWatchAllSessions: () => void;
   hooksEnabled: boolean;
   onToggleHooksEnabled: () => void;
+  host: string;
+  notify: Partial<NotifySettings>;
+}
+
+type NotifyKey = keyof NotifySettings;
+
+// Native Alerts toggles (Electron host only). Default ON for everything except
+// bringToFront — mirror the server-side NOTIFY_DEFAULTS.
+const NOTIFY_ROWS: readonly (readonly [NotifyKey, string])[] = [
+  ['nativeAttentionEnabled', 'Enable Native Alerts'],
+  ['osNotification', 'OS Notification'],
+  ['osSound', 'OS Sound'],
+  ['dockBounce', 'Dock Bounce'],
+  ['dockBadge', 'Dock Badge Count'],
+  ['menubarCount', 'Menubar Count'],
+  ['bringToFront', 'Bring Window To Front'],
+];
+
+function notifyDefault(key: NotifyKey): boolean {
+  return key !== 'bringToFront';
 }
 
 export function SettingsModal({
@@ -33,8 +54,36 @@ export function SettingsModal({
   onToggleWatchAllSessions,
   hooksEnabled,
   onToggleHooksEnabled,
+  host,
+  notify,
 }: SettingsModalProps) {
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
+
+  // Lift notify into local state so the checkboxes reflect toggles immediately,
+  // without waiting for a fresh settingsLoaded round-trip. Re-seed from the prop
+  // whenever the server pushes new values.
+  const [notifyLocal, setNotifyLocal] = useState<Partial<NotifySettings>>(notify);
+  useEffect(() => {
+    setNotifyLocal(notify);
+  }, [notify]);
+
+  const handleNotifyToggle = (key: NotifyKey) => {
+    // Build a complete NotifySettings (all 7 keys) resolving each from local state
+    // or its default, then flip the toggled key. transport.send requires the full shape.
+    const current = (k: NotifyKey) => notifyLocal[k] ?? notifyDefault(k);
+    const resolve = (k: NotifyKey) => (k === key ? !current(k) : current(k));
+    const next: NotifySettings = {
+      nativeAttentionEnabled: resolve('nativeAttentionEnabled'),
+      osNotification: resolve('osNotification'),
+      osSound: resolve('osSound'),
+      dockBounce: resolve('dockBounce'),
+      dockBadge: resolve('dockBadge'),
+      menubarCount: resolve('menubarCount'),
+      bringToFront: resolve('bringToFront'),
+    };
+    setNotifyLocal(next);
+    transport.send({ type: 'setNotifySettings', notify: next });
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings">
@@ -114,6 +163,19 @@ export function SettingsModal({
         onChange={onToggleAlwaysShowOverlay}
       />
       <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />
+      {host === 'electron' && (
+        <>
+          <div className="px-10 pt-8 pb-2 text-xs text-text-muted">Native Alerts</div>
+          {NOTIFY_ROWS.map(([key, label]) => (
+            <Checkbox
+              key={key}
+              label={label}
+              checked={notifyLocal[key] ?? notifyDefault(key)}
+              onChange={() => handleNotifyToggle(key)}
+            />
+          ))}
+        </>
+      )}
     </Modal>
   );
 }

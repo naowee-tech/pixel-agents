@@ -23,6 +23,28 @@
   "bin": {
     "pixel-agents": "./dist/cli.js"
   },
+  "build": {
+    "appId": "tech.naowee.pixelagents",
+    "productName": "Pixel Agents",
+    "files": [
+      "dist/**/*",
+      "node_modules/fastify/**/*",
+      "node_modules/@fastify/**/*"
+    ],
+    "extraMetadata": {
+      "main": "dist/electron-main.js"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    }
+  },
   "contributes": {
     "commands": [
       {
@@ -82,16 +104,19 @@
     "asyncapi:docs": "asyncapi start studio --file core/asyncapi.yaml",
     "check-types": "tsc --noEmit && tsc --noEmit -p server/tsconfig.test.json",
     "prepare": "husky",
-    "lint": "eslint adapters/vscode server core && cd webview-ui && eslint .",
-    "lint:fix": "eslint adapters/vscode server core --fix && cd webview-ui && eslint . --fix",
+    "lint": "eslint adapters/vscode adapters/electron server core && cd webview-ui && eslint .",
+    "lint:fix": "eslint adapters/vscode adapters/electron server core --fix && cd webview-ui && eslint . --fix",
+    "build:electron": "npm run compile && electron-builder --mac",
+    "dev:electron": "npm run compile && electron dist/electron-main.js",
     "import-tileset": "tsx scripts/import-tileset-cli.ts",
-    "format": "prettier --write \"adapters/vscode/**/*.ts\" \"server/**/*.ts\" \"core/src/**/*.ts\" \"webview-ui/src/**/*.{ts,tsx,css}\" \"*.{js,mjs}\" \"webview-ui/*.{js,ts}\"",
-    "format:check": "prettier --check \"adapters/vscode/**/*.ts\" \"server/**/*.ts\" \"core/src/**/*.ts\" \"webview-ui/src/**/*.{ts,tsx,css}\" \"*.{js,mjs}\" \"webview-ui/*.{js,ts}\"",
+    "format": "prettier --write \"adapters/vscode/**/*.ts\" \"adapters/electron/**/*.ts\" \"server/**/*.ts\" \"core/src/**/*.ts\" \"webview-ui/src/**/*.{ts,tsx,css}\" \"*.{js,mjs}\" \"webview-ui/*.{js,ts}\"",
+    "format:check": "prettier --check \"adapters/vscode/**/*.ts\" \"adapters/electron/**/*.ts\" \"server/**/*.ts\" \"core/src/**/*.ts\" \"webview-ui/src/**/*.{ts,tsx,css}\" \"*.{js,mjs}\" \"webview-ui/*.{js,ts}\"",
     "test:webview": "cd webview-ui && npm test",
     "test:server": "cd server && npm test",
     "test": "npm run test:webview && npm run test:server",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:debug": "playwright test --config e2e/playwright.config.ts --debug",
+    "e2e:electron": "playwright test e2e/tests/electron-app.spec.ts",
     "knip": "knip"
   },
   "devDependencies": {
@@ -103,6 +128,8 @@
     "@types/pngjs": "^6.0.5",
     "@types/vscode": "^1.105.0",
     "@vscode/test-electron": "^2.5.2",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "esbuild": "^0.28.0",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",

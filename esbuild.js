@@ -109,6 +109,7 @@ async function main() {
     copyAssets();
     buildHooks();
     await buildCli();
+    await buildElectronMain();
   }
 }
 
@@ -128,6 +129,25 @@ async function buildCli() {
   });
   if (!production) {
     console.log('[build] CLI bundled: dist/cli.mjs');
+  }
+}
+
+/** Bundle the Electron main process entry point. */
+async function buildElectronMain() {
+  await esbuild.build({
+    entryPoints: ['adapters/electron/main.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    sourcemap: !production,
+    platform: 'node',
+    outfile: 'dist/electron-main.js',
+    external: ['electron', 'fastify', '@fastify/websocket', '@fastify/static', '@fastify/cors'],
+    define: versionDefine,
+    logLevel: 'silent',
+  });
+  if (!production) {
+    console.log('[build] Electron main bundled: dist/electron-main.js');
   }
 }
 

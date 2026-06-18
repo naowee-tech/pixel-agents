@@ -48,6 +48,7 @@ export type ClientMessage =
   | SetHooksEnabled
   | SetHooksInfoShown
   | SetWatchAllSessions
+  | SetNotifySettings
   | ExportLayout
   | ImportLayout
   | OpenSessionsFolder
@@ -241,6 +242,18 @@ export interface SettingsLoaded {
   hooksEnabled: boolean;
   hooksInfoShown: boolean;
   externalAssetDirectories: string[];
+  host?: string;
+  notify?: NotifySettings;
+}
+
+export interface NotifySettings {
+  nativeAttentionEnabled: boolean;
+  osNotification: boolean;
+  osSound: boolean;
+  dockBounce: boolean;
+  dockBadge: boolean;
+  menubarCount: boolean;
+  bringToFront: boolean;
 }
 
 export interface ExternalAssetDirectoriesUpdated {
@@ -326,6 +339,11 @@ export interface SetHooksInfoShown {
 export interface SetWatchAllSessions {
   type: 'setWatchAllSessions';
   enabled: boolean;
+}
+
+export interface SetNotifySettings {
+  type: 'setNotifySettings';
+  notify: NotifySettings;
 }
 
 export interface ExportLayout {

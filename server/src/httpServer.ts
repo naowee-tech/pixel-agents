@@ -34,6 +34,12 @@ export interface HttpServerOptions {
   onHookEvent?: (providerId: string, event: Record<string, unknown>) => void;
   /** Invoked when setHooksEnabled is toggled via WebSocket. Standalone installs/uninstalls hooks here. */
   onSetHooksEnabled?: SetHooksEnabledSideEffect;
+  /** Host runtime identifier ('vscode' | 'standalone' | 'electron'), surfaced to the webview. */
+  hostId?: 'vscode' | 'standalone' | 'electron';
+  /** Native host callbacks (Electron file dialogs, open folder). */
+  hostCallbacks?: import('./clientMessageHandler.js').HostCallbacks;
+  /** Reloads furniture + character assets and pushes them to the client. */
+  reloadAssets?: (send: (m: Record<string, unknown>) => void) => Promise<void>;
 }
 
 /** Result of createHttpServer(). */
@@ -183,11 +189,14 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
         if (!options.embedded && msg.type) {
           console.log('[Pixel Agents] WS client message:', msg.type);
         }
-        handleClientMessage(msg, (m) => safeSend(socket, m), {
+        void handleClientMessage(msg, (m) => safeSend(socket, m), {
           store,
           runtime: options.runtime,
           cache: options.assetCache ?? null,
           onSetHooksEnabled: options.onSetHooksEnabled,
+          host: options.hostId,
+          hostCallbacks: options.hostCallbacks,
+          reloadAssets: options.reloadAssets,
         });
       } catch {
         // Malformed JSON, ignore

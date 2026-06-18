@@ -25,6 +25,9 @@ playwright-report/
 *.vsix
 *.map
 
+# electron-builder output
+release/
+
 # Environment files
 .env*
 !.env.example

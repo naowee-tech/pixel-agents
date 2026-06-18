@@ -158,6 +158,19 @@ describe('PixelAgentsServer', () => {
     server2.stop(); // should not delete server.json (not owner)
   });
 
+  // 10b. Standalone (embedded:false) must NOT reuse a foreign server — it has to
+  // own a server that serves the SPA, or the Electron window renders blank.
+  it('standalone (embedded:false) starts its own server instead of reusing', async () => {
+    const config1 = await server.start(); // embedded default true → owns + writes server.json
+    const server2 = new PixelAgentsServer();
+    const config2 = await server2.start({ embedded: false });
+    try {
+      expect(config2.port).not.toBe(config1.port);
+    } finally {
+      server2.stop();
+    }
+  });
+
   // 11. server.json cleaned up on stop
   it('deletes server.json on stop', async () => {
     await server.start();
