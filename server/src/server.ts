@@ -66,9 +66,13 @@ export class PixelAgentsServer {
     hostCallbacks?: import('./clientMessageHandler.js').HostCallbacks;
     reloadAssets?: (send: (m: Record<string, unknown>) => void) => Promise<void>;
   }): Promise<ServerConfig> {
-    // Check if another instance already has a server running
+    // Multi-window reuse applies to embedded (IDE) mode only: several VS Code
+    // windows share one embedded server. Standalone/Electron MUST own a server
+    // that serves the SPA — reusing a foreign (possibly embedded, SPA-less)
+    // server would leave the app window blank (GET / -> 404).
+    const allowReuse = options?.embedded ?? true;
     const existing = this.readServerJson();
-    if (existing && isProcessRunning(existing.pid)) {
+    if (allowReuse && existing && isProcessRunning(existing.pid)) {
       this.config = existing;
       this.ownsServer = false;
       console.log(
