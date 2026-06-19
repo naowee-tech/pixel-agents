@@ -12,6 +12,10 @@ export type ServerMessage =
   | AgentCreated
   | AgentClosed
   | AgentSelected
+  | TerminalData
+  | TerminalError
+  | AgentTerminalAttached
+  | AgentTerminalDetached
   | ExistingAgents
   | AgentStatus
   | AgentToolStart
@@ -40,6 +44,9 @@ export type ClientMessage =
   | LaunchAgent
   | FocusAgent
   | CloseAgent
+  | AdoptAgent
+  | TerminalInput
+  | TerminalResize
   | SaveAgentSeats
   | SaveLayout
   | SetSoundEnabled
@@ -79,12 +86,35 @@ export interface AgentSelected {
   id: number;
 }
 
+export interface TerminalData {
+  type: 'terminalData';
+  id: number;
+  data: string;
+}
+
+export interface TerminalError {
+  type: 'terminalError';
+  id: number;
+  message: string;
+}
+
+export interface AgentTerminalAttached {
+  type: 'agentTerminalAttached';
+  id: number;
+}
+
+export interface AgentTerminalDetached {
+  type: 'agentTerminalDetached';
+  id: number;
+}
+
 export interface ExistingAgents {
   type: 'existingAgents';
   agents: number[];
   agentMeta: Record<string, AgentSeatMeta>;
   folderNames: Record<string, string>;
   externalAgents: Record<string, boolean>;
+  terminalAgents: Record<string, boolean>;
 }
 
 export interface AgentSeatMeta {
@@ -294,6 +324,24 @@ export interface FocusAgent {
 export interface CloseAgent {
   type: 'closeAgent';
   id: number;
+}
+
+export interface AdoptAgent {
+  type: 'adoptAgent';
+  id: number;
+}
+
+export interface TerminalInput {
+  type: 'terminalInput';
+  id: number;
+  data: string;
+}
+
+export interface TerminalResize {
+  type: 'terminalResize';
+  id: number;
+  cols: number;
+  rows: number;
 }
 
 export interface SaveAgentSeats {
