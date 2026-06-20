@@ -87,7 +87,7 @@ describe('terminal messages', () => {
     return {
       store,
       runtime,
-      base: { store, runtime, cache: null, host: 'electron', ...overrides },
+      base: { store, runtime, cache: null, host: 'electron' as const, ...overrides },
     };
   }
 
