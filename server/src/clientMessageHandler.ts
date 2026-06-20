@@ -4,6 +4,7 @@ import type { LoadedAssets, LoadedCharacterSprites } from './assetLoader.js';
 import { readConfig, writeConfig } from './configPersistence.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
 import { claudeProvider } from './providers/index.js';
+import { adoptTerminalAgent, launchTerminalAgent } from './terminalLauncher.js';
 
 type WsSend = (message: Record<string, unknown>) => void;
 
@@ -20,6 +21,14 @@ export interface HostCallbacks {
   onImportLayout?: () => Promise<void> | void;
   onPickAssetDir?: () => Promise<void> | void;
   onOpenPath?: (dir: string) => void;
+  /** Spawn a pty for an agent (Electron). */
+  onSpawnTerminal?: (opts: { id: number; cwd: string; command: string }) => void;
+  /** Forward keyboard/paste input to an agent's pty. */
+  onTerminalInput?: (opts: { id: number; data: string }) => void;
+  /** Resize an agent's pty. */
+  onTerminalResize?: (opts: { id: number; cols: number; rows: number }) => void;
+  /** Kill an agent's pty. */
+  onKillTerminal?: (id: number) => void;
 }
 
 /** Cached assets loaded at server startup. Sent to each WebSocket client on webviewReady. */
@@ -198,6 +207,44 @@ export async function handleClientMessage(
       break;
     }
 
+    case 'launchAgent':
+      if (runtime) {
+        launchTerminalAgent(
+          { runtime, store, onSpawnTerminal: ctx.hostCallbacks?.onSpawnTerminal },
+          {
+            folderPath: msg.folderPath as string | undefined,
+            bypassPermissions: msg.bypassPermissions as boolean | undefined,
+          },
+        );
+      }
+      break;
+
+    case 'adoptAgent':
+      if (runtime) {
+        adoptTerminalAgent(
+          { runtime, store, onSpawnTerminal: ctx.hostCallbacks?.onSpawnTerminal },
+          { id: msg.id as number },
+        );
+      }
+      break;
+
+    case 'terminalInput':
+      ctx.hostCallbacks?.onTerminalInput?.({ id: msg.id as number, data: msg.data as string });
+      break;
+
+    case 'terminalResize':
+      ctx.hostCallbacks?.onTerminalResize?.({
+        id: msg.id as number,
+        cols: msg.cols as number,
+        rows: msg.rows as number,
+      });
+      break;
+
+    case 'closeAgent':
+      ctx.hostCallbacks?.onKillTerminal?.(msg.id as number);
+      runtime?.removeAgent(msg.id as number);
+      break;
+
     default:
       // focusAgent and other messages require IDE-specific handling
       // (not yet implemented for standalone)
@@ -276,6 +323,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   const agentIds: number[] = [];
   const folderNames: Record<number, string> = {};
   const externalAgents: Record<number, boolean> = {};
+  const terminalAgents: Record<number, boolean> = {};
   for (const [id, agent] of store) {
     agentIds.push(id);
     if (agent.folderName) {
@@ -283,6 +331,9 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     }
     if (agent.isExternal) {
       externalAgents[id] = true;
+    }
+    if (agent.hasTerminal) {
+      terminalAgents[id] = true;
     }
   }
   const seats = adapter?.loadSeats() ?? {};
@@ -292,5 +343,6 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     agentMeta: seats,
     folderNames,
     externalAgents,
+    terminalAgents,
   });
 }

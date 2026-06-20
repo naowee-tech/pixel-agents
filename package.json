@@ -29,7 +29,11 @@
     "files": [
       "dist/**/*",
       "node_modules/fastify/**/*",
-      "node_modules/@fastify/**/*"
+      "node_modules/@fastify/**/*",
+      "node_modules/node-pty/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
     ],
     "extraMetadata": {
       "main": "dist/electron-main.js"
@@ -156,6 +160,7 @@
     "@fastify/cors": "^11.2.0",
     "@fastify/static": "^9.1.1",
     "@fastify/websocket": "^11.2.0",
-    "fastify": "^5.8.5"
+    "fastify": "^5.8.5",
+    "node-pty": "^1.1.0"
   }
 }

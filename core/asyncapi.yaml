@@ -83,6 +83,10 @@ components:
         - $ref: '#/components/schemas/AgentCreated'
         - $ref: '#/components/schemas/AgentClosed'
         - $ref: '#/components/schemas/AgentSelected'
+        - $ref: '#/components/schemas/TerminalData'
+        - $ref: '#/components/schemas/TerminalError'
+        - $ref: '#/components/schemas/AgentTerminalAttached'
+        - $ref: '#/components/schemas/AgentTerminalDetached'
         - $ref: '#/components/schemas/ExistingAgents'
         # Agent status / tool activity
         - $ref: '#/components/schemas/AgentStatus'
@@ -120,6 +124,9 @@ components:
         - $ref: '#/components/schemas/LaunchAgent'
         - $ref: '#/components/schemas/FocusAgent'
         - $ref: '#/components/schemas/CloseAgent'
+        - $ref: '#/components/schemas/AdoptAgent'
+        - $ref: '#/components/schemas/TerminalInput'
+        - $ref: '#/components/schemas/TerminalResize'
         - $ref: '#/components/schemas/SaveAgentSeats'
         - $ref: '#/components/schemas/SaveLayout'
         - $ref: '#/components/schemas/SetSoundEnabled'
@@ -198,13 +205,61 @@ components:
         id:
           type: integer
 
+    TerminalData:
+      description: A chunk of pty output for an agent's embedded terminal (Electron).
+      type: object
+      additionalProperties: false
+      required: [type, id, data]
+      properties:
+        type:
+          const: terminalData
+        id:
+          type: integer
+        data:
+          type: string
+
+    TerminalError:
+      description: An embedded terminal failed to spawn or errored (Electron).
+      type: object
+      additionalProperties: false
+      required: [type, id, message]
+      properties:
+        type:
+          const: terminalError
+        id:
+          type: integer
+        message:
+          type: string
+
+    AgentTerminalAttached:
+      description: The agent now has a live in-app terminal (pty spawned/adopted).
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: agentTerminalAttached
+        id:
+          type: integer
+
+    AgentTerminalDetached:
+      description: The agent's in-app terminal died (pty exited); it is read-only again.
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: agentTerminalDetached
+        id:
+          type: integer
+
     ExistingAgents:
       description: |
         Snapshot of all current agents. Sent on initial connect and after agent set
         changes that the client missed. Includes seat/palette assignments.
       type: object
       additionalProperties: false
-      required: [type, agents, agentMeta, folderNames, externalAgents]
+      required: [type, agents, agentMeta, folderNames, externalAgents, terminalAgents]
       properties:
         type:
           const: existingAgents
@@ -225,6 +280,11 @@ components:
         externalAgents:
           type: object
           description: Map of agent ID (string) to external flag.
+          additionalProperties:
+            type: boolean
+        terminalAgents:
+          type: object
+          description: Map of agent ID (string) to "has live in-app terminal" flag.
           additionalProperties:
             type: boolean
 
@@ -650,6 +710,45 @@ components:
         type:
           const: closeAgent
         id:
+          type: integer
+
+    AdoptAgent:
+      description: Attach an in-app terminal to an existing (external/detached) agent via claude --resume.
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: adoptAgent
+        id:
+          type: integer
+
+    TerminalInput:
+      description: Keyboard/paste input from xterm to the agent's pty.
+      type: object
+      additionalProperties: false
+      required: [type, id, data]
+      properties:
+        type:
+          const: terminalInput
+        id:
+          type: integer
+        data:
+          type: string
+
+    TerminalResize:
+      description: xterm viewport resized; resize the agent's pty.
+      type: object
+      additionalProperties: false
+      required: [type, id, cols, rows]
+      properties:
+        type:
+          const: terminalResize
+        id:
+          type: integer
+        cols:
+          type: integer
+        rows:
           type: integer
 
     SaveAgentSeats:

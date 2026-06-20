@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { toMajorMinor } from './changelogData.js';
+import { AgentTabs } from './components/AgentTabs.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
 import { DebugView } from './components/DebugView.js';
 import { EditActionBar } from './components/EditActionBar.js';
+import { ElectronShell } from './components/ElectronShell.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
 import { SettingsModal } from './components/SettingsModal.js';
+import { TerminalPanel } from './components/TerminalPanel.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
@@ -75,6 +78,7 @@ function App() {
     setHooksEnabled,
     hooksInfoShown,
     host,
+    terminalAgents,
     notify,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
@@ -88,6 +92,7 @@ function App() {
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
   const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(false);
+  const [focusedAgentId, setFocusedAgentId] = useState<number | null>(null);
 
   const currentMajorMinor = toMajorMinor(extensionVersion);
 
@@ -142,6 +147,7 @@ function App() {
     const os = getOfficeState();
     const meta = os.subagentMeta.get(agentId);
     const focusId = meta ? meta.parentAgentId : agentId;
+    setFocusedAgentId(focusId);
     transport.send({ type: 'focusAgent', id: focusId });
   }, []);
 
@@ -173,7 +179,7 @@ function App() {
     return <div className="w-full h-full flex items-center justify-center ">Loading...</div>;
   }
 
-  return (
+  const officeView = (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden">
       <OfficeCanvas
         officeState={officeState}
@@ -331,6 +337,7 @@ function App() {
         isSettingsOpen={isSettingsOpen}
         onToggleSettings={() => setIsSettingsOpen((v) => !v)}
         workspaceFolders={workspaceFolders}
+        host={host}
       />
 
       <VersionIndicator
@@ -375,6 +382,34 @@ function App() {
       )}
     </div>
   );
+
+  if (host === 'electron') {
+    return (
+      <ElectronShell
+        tabs={
+          <AgentTabs
+            agents={agents}
+            focusedAgentId={focusedAgentId}
+            statuses={agentStatuses}
+            terminalAgents={terminalAgents}
+            onFocus={(id) => {
+              setFocusedAgentId(id);
+              transport.send({ type: 'focusAgent', id });
+            }}
+          />
+        }
+        office={officeView}
+        terminal={
+          <TerminalPanel
+            focusedAgentId={focusedAgentId}
+            hasTerminal={focusedAgentId != null && terminalAgents.includes(focusedAgentId)}
+          />
+        }
+      />
+    );
+  }
+
+  return officeView;
 }
 
 export default App;

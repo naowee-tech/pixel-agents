@@ -252,4 +252,24 @@ describe('claudeProvider', () => {
       expect(claudeProvider.formatToolStatus('Read', undefined)).toBe('Reading ');
     });
   });
+
+  describe('buildLaunchCommand resume', () => {
+    it('uses --session-id for a fresh launch', () => {
+      const r = claudeProvider.buildLaunchCommand!('sess-1', '/tmp/x');
+      expect(r.args).toEqual(['--session-id', 'sess-1']);
+    });
+
+    it('uses --resume when resume:true', () => {
+      const r = claudeProvider.buildLaunchCommand!('sess-1', '/tmp/x', { resume: true });
+      expect(r.args).toEqual(['--resume', 'sess-1']);
+    });
+
+    it('keeps bypass flag with resume', () => {
+      const r = claudeProvider.buildLaunchCommand!('sess-1', '/tmp/x', {
+        resume: true,
+        bypassPermissions: true,
+      });
+      expect(r.args).toEqual(['--resume', 'sess-1', '--dangerously-skip-permissions']);
+    });
+  });
 });
