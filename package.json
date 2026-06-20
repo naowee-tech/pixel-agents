@@ -156,6 +156,7 @@
     "@fastify/cors": "^11.2.0",
     "@fastify/static": "^9.1.1",
     "@fastify/websocket": "^11.2.0",
-    "fastify": "^5.8.5"
+    "fastify": "^5.8.5",
+    "node-pty": "^1.1.0"
   }
 }

@@ -2,6 +2,9 @@
   "name": "pixel-agents-electron",
   "private": true,
   "version": "0.0.0",
+  "dependencies": {
+    "node-pty": "^1.0.0"
+  },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
