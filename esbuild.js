@@ -142,7 +142,14 @@ async function buildElectronMain() {
     sourcemap: !production,
     platform: 'node',
     outfile: 'dist/electron-main.js',
-    external: ['electron', 'fastify', '@fastify/websocket', '@fastify/static', '@fastify/cors'],
+    external: [
+      'electron',
+      'node-pty',
+      'fastify',
+      '@fastify/websocket',
+      '@fastify/static',
+      '@fastify/cors',
+    ],
     define: versionDefine,
     logLevel: 'silent',
   });

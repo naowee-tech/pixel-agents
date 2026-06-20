@@ -29,7 +29,11 @@
     "files": [
       "dist/**/*",
       "node_modules/fastify/**/*",
-      "node_modules/@fastify/**/*"
+      "node_modules/@fastify/**/*",
+      "node_modules/node-pty/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
     ],
     "extraMetadata": {
       "main": "dist/electron-main.js"

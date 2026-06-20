@@ -7,6 +7,8 @@ import { attachAttention } from './attention.js';
 import { STATE_NAMESPACE } from './config.js';
 import { applyAppMenu } from './menu.js';
 import { createNativeBridge } from './nativeBridge.js';
+import { createTerminalBridge } from './terminalBridge.js';
+import { createTerminalManager } from './terminalManager.js';
 import { createWaitingTray } from './tray.js';
 import { createMainWindow } from './window.js';
 
@@ -14,6 +16,7 @@ let handle: StandaloneHandle | null = null;
 let win: BrowserWindow | null = null;
 let tray: { setCount: (n: number) => void; destroy: () => void } | null = null;
 let detachAttention: (() => void) | null = null;
+let terminal: ReturnType<typeof createTerminalManager> | null = null;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -61,10 +64,19 @@ function clearFilter(): void {
 async function ensureServer(): Promise<void> {
   if (handle) return;
 
-  const bridge = createNativeBridge({
-    getWindow: () => win,
+  terminal = createTerminalManager();
+  const terminalBridge = createTerminalBridge({
+    manager: terminal,
     broadcast: (m) => handle?.store.broadcast(m),
+    onExit: (id) => handle?.runtime.markTerminalDetached(id),
   });
+  const bridge = {
+    ...createNativeBridge({
+      getWindow: () => win,
+      broadcast: (m) => handle?.store.broadcast(m),
+    }),
+    ...terminalBridge,
+  };
   handle = await startStandaloneServer({
     distRoot: distRoot(),
     port: 0,
@@ -117,10 +129,13 @@ async function boot(): Promise<void> {
 }
 
 if (gotLock) {
-  app.whenReady().then(boot).catch((err) => {
-    console.error('[Pixel Agents] Failed to start:', err);
-    app.quit();
-  });
+  app
+    .whenReady()
+    .then(boot)
+    .catch((err) => {
+      console.error('[Pixel Agents] Failed to start:', err);
+      app.quit();
+    });
 }
 
 app.on('window-all-closed', () => {
@@ -137,6 +152,8 @@ app.on('before-quit', () => {
   detachAttention = null;
   tray?.destroy();
   tray = null;
+  terminal?.killAll();
+  terminal = null;
   if (handle) stopStandalone(handle);
   handle = null;
 });
