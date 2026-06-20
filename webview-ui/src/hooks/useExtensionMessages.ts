@@ -14,6 +14,7 @@ import {
 } from '../office/toolUtils.js';
 import type { OfficeLayout, ToolActivity } from '../office/types.js';
 import { setWallSprites } from '../office/wallTiles.js';
+import { disposeTerminal, writeToTerminal } from '../terminal/terminalClient.js';
 import { transport } from '../transport/index.js';
 
 export interface SubagentCharacter {
@@ -72,6 +73,7 @@ interface ExtensionMessageState {
   setHooksEnabled: (v: boolean) => void;
   hooksInfoShown: boolean;
   host: string;
+  terminalAgents: number[];
   notify: Partial<NotifySettings>;
 }
 
@@ -111,6 +113,7 @@ export function useExtensionMessages(
   const [hooksEnabled, setHooksEnabled] = useState(true);
   const [hooksInfoShown, setHooksInfoShown] = useState(true);
   const [host, setHost] = useState('browser');
+  const [terminalAgents, setTerminalAgents] = useState<number[]>([]);
   const [notify, setNotify] = useState<Partial<NotifySettings>>({});
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
@@ -222,6 +225,8 @@ export function useExtensionMessages(
         os.removeAllSubagents(id);
         setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== id));
         os.removeAgent(id);
+        setTerminalAgents((prev) => prev.filter((a) => a !== id));
+        disposeTerminal(id);
       } else if (msg.type === 'existingAgents') {
         const incoming = msg.agents as number[];
         const meta = (msg.agentMeta || {}) as Record<
@@ -250,6 +255,11 @@ export function useExtensionMessages(
           }
           return merged.sort((a, b) => a - b);
         });
+        const termFlags = (msg.terminalAgents || {}) as Record<number, boolean>;
+        const termIds = Object.keys(termFlags)
+          .filter((k) => termFlags[Number(k)])
+          .map(Number);
+        setTerminalAgents((prev) => Array.from(new Set([...prev, ...termIds])));
       } else if (msg.type === 'agentToolStart') {
         const id = msg.id as number;
         const toolId = msg.toolId as string;
@@ -517,6 +527,19 @@ export function useExtensionMessages(
       } else if (msg.type === 'agentTokenUsage') {
         const id = msg.id as number;
         os.setAgentTokens(id, msg.inputTokens as number, msg.outputTokens as number);
+      } else if (msg.type === 'terminalData') {
+        writeToTerminal(msg.id as number, msg.data as string);
+      } else if (msg.type === 'terminalError') {
+        writeToTerminal(
+          msg.id as number,
+          `\r\n\x1b[31m[error] ${msg.message as string}\x1b[0m\r\n`,
+        );
+      } else if (msg.type === 'agentTerminalAttached') {
+        const id = msg.id as number;
+        setTerminalAgents((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      } else if (msg.type === 'agentTerminalDetached') {
+        const id = msg.id as number;
+        setTerminalAgents((prev) => prev.filter((a) => a !== id));
       }
     };
     const unsubscribe = transport.onMessage(handler);
@@ -546,6 +569,7 @@ export function useExtensionMessages(
     setHooksEnabled,
     hooksInfoShown,
     host,
+    terminalAgents,
     notify,
   };
 }
