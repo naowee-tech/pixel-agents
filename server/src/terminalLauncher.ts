@@ -33,7 +33,13 @@ export function launchTerminalAgent(
   const command = buildCommand(sessionId, cwd, false, opts.bypassPermissions);
 
   const id = ctx.runtime.registerSpawnedAgent({ sessionId, projectDir });
-  ctx.onSpawnTerminal?.({ id, cwd, command });
+  try {
+    ctx.onSpawnTerminal?.({ id, cwd, command });
+  } catch (err) {
+    ctx.runtime.markTerminalDetached(id);
+    ctx.store.broadcast({ type: 'terminalError', id, message: String(err) });
+    return;
+  }
   ctx.store.broadcast({ type: 'agentTerminalAttached', id });
 }
 
@@ -45,14 +51,20 @@ export function adoptTerminalAgent(ctx: TerminalLaunchContext, opts: { id: numbe
   const command = buildCommand(agent.sessionId, cwd, true);
 
   agent.hasTerminal = true;
-  ctx.onSpawnTerminal?.({ id: opts.id, cwd, command });
+  try {
+    ctx.onSpawnTerminal?.({ id: opts.id, cwd, command });
+  } catch (err) {
+    agent.hasTerminal = false;
+    ctx.store.broadcast({ type: 'terminalError', id: opts.id, message: String(err) });
+    return;
+  }
   ctx.store.broadcast({ type: 'agentTerminalAttached', id: opts.id });
 }
 
 /**
  * Best-effort reverse of Claude's project-hash encoding (path separators → '-').
  * Used as the cwd for `claude --resume`. Falls back to the home directory when the
- * decoded path does not exist (the hash is lossy for paths containing real dashes).
+ * decoded basename is not an absolute path (the hash is lossy for paths containing real dashes).
  */
 export function decodeProjectDirToCwd(projectDir: string): string {
   const base = path.basename(projectDir);

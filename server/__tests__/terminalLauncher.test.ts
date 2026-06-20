@@ -56,6 +56,26 @@ describe('terminalLauncher', () => {
     runtime.dispose();
   });
 
+  it('launchTerminalAgent emits terminalError and rolls back when spawn throws', () => {
+    const store = new AgentStateStore();
+    const runtime = new AgentRuntime(store, claudeProvider);
+    const errors: Record<string, unknown>[] = [];
+    const attached: number[] = [];
+    store.on('broadcast', (m) => {
+      if (m.type === 'terminalError') errors.push(m);
+      if (m.type === 'agentTerminalAttached') attached.push(m.id as number);
+    });
+    const onSpawnTerminal = () => {
+      throw new Error('spawn failed');
+    };
+    launchTerminalAgent({ runtime, store, onSpawnTerminal }, { folderPath: dir });
+    expect(errors).toHaveLength(1);
+    expect(attached).toHaveLength(0);
+    const id = errors[0].id as number;
+    expect(store.get(id)!.hasTerminal).toBe(false);
+    runtime.dispose();
+  });
+
   it('adoptTerminalAgent is a no-op for an unknown id', () => {
     const store = new AgentStateStore();
     const runtime = new AgentRuntime(store, claudeProvider);

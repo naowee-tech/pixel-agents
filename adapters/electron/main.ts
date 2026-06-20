@@ -18,6 +18,10 @@ let tray: { setCount: (n: number) => void; destroy: () => void } | null = null;
 let detachAttention: (() => void) | null = null;
 let terminal: ReturnType<typeof createTerminalManager> | null = null;
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[Pixel Agents] Unhandled rejection:', reason);
+});
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();

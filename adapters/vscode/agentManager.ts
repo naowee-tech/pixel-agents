@@ -514,6 +514,7 @@ export function sendExistingAgents(
     agentMeta,
     folderNames,
     externalAgents,
+    terminalAgents: {},
   });
   // Note: sendCurrentAgentStatuses is called separately AFTER layoutLoaded
   // so that agentStatus/agentToolStart messages arrive after characters are created.
