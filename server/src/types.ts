@@ -30,6 +30,8 @@ export interface AgentState {
   seenUnknownRecordTypes: Set<string>;
   /** Whether a hook event has been delivered for this agent (suppresses heuristic timers) */
   hookDelivered: boolean;
+  /** True when this agent has a live in-app pty terminal (Electron). Not persisted. */
+  hasTerminal?: boolean;
   /** True when agent has no transcript file (provider doesn't use JSONL). All state from hooks. */
   hooksOnly?: boolean;
   /** Provider that created this agent (defaults to 'claude') */

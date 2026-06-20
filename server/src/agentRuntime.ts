@@ -14,11 +14,13 @@ import * as path from 'path';
 
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
+import { JSONL_POLL_INTERVAL_MS } from './constants.js';
 import { DismissalTracker } from './dismissalTracker.js';
 import {
   adoptExternalSessionFromHook,
   ensureProjectScan,
   isTrackedProjectDir,
+  readNewLines,
   reassignAgentToFile,
   scanForTeammateFiles,
   setAgentRemovalCallback,
@@ -408,6 +410,87 @@ export class AgentRuntime {
     }
 
     this.store.persist();
+  }
+
+  // ── App-spawned (pty-backed) agents ──
+
+  /**
+   * Register an app-spawned (pty-backed) agent. Mirrors the VS Code agentManager
+   * launch path, but uses no terminal handle — the live pty lives in the Electron
+   * host, keyed by the returned agent id. Pre-registers the expected JSONL so the
+   * global scan does not also surface it as an external agent.
+   */
+  registerSpawnedAgent(opts: {
+    sessionId: string;
+    projectDir: string;
+    folderName?: string;
+  }): number {
+    const id = this.store.nextAgentId.current++;
+    const jsonlFile = path.join(opts.projectDir, `${opts.sessionId}.jsonl`);
+    this.knownJsonlFiles.add(jsonlFile);
+
+    const agent: AgentState = {
+      id,
+      sessionId: opts.sessionId,
+      terminalRef: undefined,
+      isExternal: false,
+      hasTerminal: true,
+      projectDir: opts.projectDir,
+      jsonlFile,
+      fileOffset: 0,
+      lineBuffer: '',
+      activeToolIds: new Set(),
+      activeToolStatuses: new Map(),
+      activeToolNames: new Map(),
+      activeSubagentToolIds: new Map(),
+      activeSubagentToolNames: new Map(),
+      backgroundAgentToolIds: new Set(),
+      isWaiting: false,
+      permissionSent: false,
+      hadToolsInTurn: false,
+      lastDataAt: 0,
+      linesProcessed: 0,
+      seenUnknownRecordTypes: new Set(),
+      folderName: opts.folderName,
+      hookDelivered: false,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+
+    this.store.set(id, agent);
+    this.registerAgent(agent.sessionId, id);
+    this.store.persist();
+
+    // Poll for the transcript to appear, then start watching it.
+    const pollTimer = setInterval(() => {
+      try {
+        if (fs.existsSync(jsonlFile)) {
+          clearInterval(pollTimer);
+          this.jsonlPollTimers.delete(id);
+          startFileWatching(
+            id,
+            jsonlFile,
+            this.store,
+            this.fileWatchers,
+            this.pollingTimers,
+            this.waitingTimers,
+            this.permissionTimers,
+          );
+          readNewLines(id, this.store, this.waitingTimers, this.permissionTimers);
+        }
+      } catch {
+        /* file may not exist yet */
+      }
+    }, JSONL_POLL_INTERVAL_MS);
+    this.jsonlPollTimers.set(id, pollTimer);
+
+    return id;
+  }
+
+  /** Clear the live-terminal flag for an agent (pty exited). Character stays. */
+  markTerminalDetached(id: number): void {
+    const agent = this.store.get(id);
+    if (agent) agent.hasTerminal = false;
   }
 
   // ── Cleanup ──
